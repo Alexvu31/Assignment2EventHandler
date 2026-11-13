@@ -1,0 +1,36 @@
+﻿@model Assignment1EventHandler.Models.Attendee
+
+<h2>Edit Attendee</h2>
+
+<form asp-action="EditAttendee"
+      asp-route-eventId="@Model.EventId"
+      asp-route-id="@Model.Id"
+      method="post">
+
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Email" class="form-label"></label>
+        <input asp-for="Email" class="form-control" />
+        <span asp-validation-for="Email" class="text-danger"></span>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        Save Changes
+    </button>
+
+    <a asp-action="ManageAttendees"
+       asp-route-eventId="@Model.EventId"
+       class="btn btn-secondary">
+        Cancel
+    </a>
+
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

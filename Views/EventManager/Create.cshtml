@@ -1,0 +1,64 @@
+﻿
+@model Assignment1EventHandler.Models.Event
+
+<h2>Create New Event</h2>
+
+<form asp-action="Create"
+      method="post"
+      enctype="multipart/form-data">
+
+    <div class="mb-3">
+        <label asp-for="Title" class="form-label"></label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label"></label>
+        <textarea asp-for="Description" class="form-control"></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Date" class="form-label"></label>
+        <input asp-for="Date"
+               type="datetime-local"
+               class="form-control" />
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Location" class="form-label"></label>
+        <input asp-for="Location" class="form-control" />
+        <span asp-validation-for="Location" class="text-danger"></span>
+    </div>
+
+    <!-- Event Banner Upload -->
+    <div class="mb-3">
+        <label for="bannerImage" class="form-label">
+            Event Banner Image
+        </label>
+
+        <input type="file"
+               name="bannerImage"
+               id="bannerImage"
+               class="form-control"
+               accept=".jpg,.jpeg,.png,.gif,.webp" />
+
+        <small class="text-muted">
+            Maximum file size: 5 MB.
+            Accepted formats: JPG, PNG, GIF, WEBP.
+        </small>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        Create Event
+    </button>
+
+    <a asp-action="Index" class="btn btn-secondary">
+        Cancel
+    </a>
+
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

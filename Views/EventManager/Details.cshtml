@@ -1,0 +1,86 @@
+﻿
+@model Assignment1EventHandler.Models.Event
+
+<h2>Event Details</h2>
+
+<div class="card mb-4">
+    <div class="card-body">
+
+        <h3>@Model.Title</h3>
+
+        <!-- DISPLAY AZURE BLOB STORAGE BANNER -->
+        @if (!string.IsNullOrEmpty(Model.BannerUrl))
+        {
+            <div class="mb-4">
+                <img src="@Model.BannerUrl"
+                     alt="@Model.Title Banner"
+                     class="img-fluid rounded"
+                     style="width: 100%; max-height: 400px; object-fit: cover;" />
+            </div>
+        }
+        else
+        {
+            <div class="alert alert-info">
+                No banner image has been uploaded for this event.
+            </div>
+        }
+
+        <p>
+            <strong>Description:</strong> @Model.Description
+        </p>
+
+        <p>
+            <strong>Date:</strong> @Model.Date.ToString("f")
+        </p>
+
+        <p>
+            <strong>Location:</strong> @Model.Location
+        </p>
+
+        <a asp-action="Edit"
+           asp-route-eventId="@Model.Id"
+           class="btn btn-warning">
+            Edit Event
+        </a>
+
+        <a asp-action="ManageAttendees"
+           asp-route-eventId="@Model.Id"
+           class="btn btn-primary">
+            Manage Attendees
+        </a>
+
+        <a asp-action="Index"
+           class="btn btn-secondary">
+            Back
+        </a>
+
+    </div>
+</div>
+
+<h3>Attendees</h3>
+
+@if (Model.Attendees != null && Model.Attendees.Any())
+{
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Email</th>
+            </tr>
+        </thead>
+
+        <tbody>
+            @foreach (var attendee in Model.Attendees)
+            {
+                <tr>
+                    <td>@attendee.Name</td>
+                    <td>@attendee.Email</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+else
+{
+    <p>No attendees registered yet.</p>
+}

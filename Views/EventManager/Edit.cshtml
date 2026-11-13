@@ -1,0 +1,86 @@
+﻿
+@model Assignment1EventHandler.Models.Event
+
+<h2>Edit Event</h2>
+
+<form asp-action="Edit"
+      asp-route-eventId="@Model.Id"
+      method="post"
+      enctype="multipart/form-data">
+
+    <input type="hidden" asp-for="Id" />
+
+    <div class="mb-3">
+        <label asp-for="Title" class="form-label"></label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger"></span>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Description" class="form-label"></label>
+        <textarea asp-for="Description" class="form-control"></textarea>
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Date" class="form-label"></label>
+        <input asp-for="Date"
+               type="datetime-local"
+               class="form-control" />
+    </div>
+
+    <div class="mb-3">
+        <label asp-for="Location" class="form-label"></label>
+        <input asp-for="Location" class="form-control" />
+        <span asp-validation-for="Location" class="text-danger"></span>
+    </div>
+
+    <!-- Display Existing Banner -->
+    <div class="mb-3">
+        <label class="form-label">Current Event Banner</label>
+
+        @if (!string.IsNullOrEmpty(Model.BannerUrl))
+        {
+            <div>
+                <img src="@Model.BannerUrl"
+                     alt="Event Banner"
+                     style="max-width: 350px; height: auto;"
+                     class="img-fluid rounded" />
+            </div>
+        }
+        else
+        {
+            <p class="text-muted">No banner uploaded yet.</p>
+        }
+    </div>
+
+    <!-- Upload Replacement Banner -->
+    <div class="mb-3">
+        <label for="bannerImage" class="form-label">
+            Replace Event Banner
+        </label>
+
+        <input type="file"
+               name="bannerImage"
+               id="bannerImage"
+               class="form-control"
+               accept=".jpg,.jpeg,.png,.gif,.webp" />
+
+        <small class="text-muted">
+            Leave empty to keep the existing banner.
+            Maximum file size: 5 MB.
+        </small>
+    </div>
+
+    <button type="submit" class="btn btn-primary">
+        Save Changes
+    </button>
+
+    <a asp-action="Index" class="btn btn-secondary">
+        Cancel
+    </a>
+
+</form>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}
