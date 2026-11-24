@@ -1,3 +1,12 @@
 .vs/ 
 bin/ 
 obj/ 
+# Local application settings containing secrets
+appsettings.Development.json
+
+# User-specific configuration
+*.csproj.user
+
+# Visual Studio publish profiles containing credentials
+Properties/PublishProfiles/*.pubxml
+Properties/PublishProfiles/*.pubxml.user
