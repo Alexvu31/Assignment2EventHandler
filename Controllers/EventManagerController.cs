@@ -5,9 +5,11 @@ using Assignment1EventHandler.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Assignment1EventHandler.Controllers
 {
+    [Authorize]
     [Route("events")]
     public class EventManagerController : Controller
     {
@@ -22,7 +24,7 @@ namespace Assignment1EventHandler.Controllers
             _blobStorage = blobStorage;
         }
 
-        // DISPLAY ALL EVENTS
+        // DISPLAY ALL EVENTS - ORGANIZER AND USER
         [HttpGet("")]
         [HttpGet("/")]
         public async Task<IActionResult> Index()
@@ -34,7 +36,7 @@ namespace Assignment1EventHandler.Controllers
             return View(events);
         }
 
-        // VIEW EVENT DETAILS
+        // VIEW EVENT DETAILS - ORGANIZER AND USER
         [HttpGet("{eventId:int}/details")]
         public async Task<IActionResult> Details(int eventId)
         {
@@ -48,14 +50,16 @@ namespace Assignment1EventHandler.Controllers
             return View(selectedEvent);
         }
 
-        // DISPLAY CREATE FORM
+        // DISPLAY CREATE FORM - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpGet("create")]
         public IActionResult Create()
         {
             return View();
         }
 
-        // CREATE EVENT WITH AZURE BLOB IMAGE UPLOAD
+        // CREATE EVENT - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpPost("create")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Create(
@@ -90,7 +94,8 @@ namespace Assignment1EventHandler.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // DISPLAY EDIT FORM
+        // DISPLAY EDIT FORM - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpGet("{eventId:int}/edit")]
         public async Task<IActionResult> Edit(int eventId)
         {
@@ -102,7 +107,8 @@ namespace Assignment1EventHandler.Controllers
             return View(ev);
         }
 
-        // UPDATE EVENT WITH AZURE BLOB IMAGE UPLOAD
+        // UPDATE EVENT - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpPost("{eventId:int}/edit")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(
@@ -155,7 +161,8 @@ namespace Assignment1EventHandler.Controllers
                 nameof(Details), new { eventId });
         }
 
-        // DISPLAY DELETE CONFIRMATION
+        // DISPLAY DELETE CONFIRMATION - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpGet("{eventId:int}/delete")]
         public async Task<IActionResult> Delete(int eventId)
         {
@@ -168,7 +175,8 @@ namespace Assignment1EventHandler.Controllers
             return View(ev);
         }
 
-        // DELETE EVENT
+        // DELETE EVENT - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpPost("{eventId:int}/delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(int eventId)
@@ -185,7 +193,8 @@ namespace Assignment1EventHandler.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // DISPLAY ATTENDEES FOR AN EVENT
+        // DISPLAY ATTENDEES - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpGet("{eventId:int}/attendees")]
         public async Task<IActionResult> ManageAttendees(int eventId)
         {
@@ -199,7 +208,8 @@ namespace Assignment1EventHandler.Controllers
             return View(selectedEvent);
         }
 
-        // DISPLAY ADD ATTENDEE FORM
+        // DISPLAY ADD ATTENDEE FORM - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpGet("{eventId:int}/attendees/create")]
         public async Task<IActionResult> CreateAttendee(int eventId)
         {
@@ -214,7 +224,8 @@ namespace Assignment1EventHandler.Controllers
                 new Attendee { EventId = eventId });
         }
 
-        // ADD ATTENDEE
+        // ADD ATTENDEE - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpPost("{eventId:int}/attendees/create")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> CreateAttendee(
@@ -243,7 +254,8 @@ namespace Assignment1EventHandler.Controllers
                 nameof(ManageAttendees), new { eventId });
         }
 
-        // DISPLAY EDIT ATTENDEE FORM
+        // DISPLAY EDIT ATTENDEE FORM - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpGet("{eventId:int}/attendees/{id}/edit")]
         public async Task<IActionResult> EditAttendee(
             int eventId, string id)
@@ -258,7 +270,8 @@ namespace Assignment1EventHandler.Controllers
             return View(attendee);
         }
 
-        // UPDATE ATTENDEE
+        // UPDATE ATTENDEE - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpPost("{eventId:int}/attendees/{id}/edit")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> EditAttendee(
@@ -285,7 +298,8 @@ namespace Assignment1EventHandler.Controllers
                 nameof(ManageAttendees), new { eventId });
         }
 
-        // DELETE ATTENDEE
+        // DELETE ATTENDEE - ORGANIZER ONLY
+        [Authorize(Roles = "Organizer")]
         [HttpPost("{eventId:int}/attendees/{id}/delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteAttendee(

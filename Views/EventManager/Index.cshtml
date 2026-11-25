@@ -1,19 +1,23 @@
-﻿@model IEnumerable<Assignment1EventHandler.Models.Event>
+﻿
+@model IEnumerable<Assignment1EventHandler.Models.Event>
 
 @{
     ViewData["Title"] = "Event Manager";
+    bool isOrganizer = User.IsInRole("Organizer");
 }
 
 <h2>Event Manager</h2>
 
 <p>Manage your events and attendees.</p>
 
-<a asp-action="Create" class="btn btn-success mb-3">
-    Create New Event
-</a>
+@if (isOrganizer)
+{
+    <a asp-action="Create" class="btn btn-success mb-3">
+        Create New Event
+    </a>
+}
 
 <table class="table table-striped table-bordered">
-
     <thead>
         <tr>
             <th>Title</th>
@@ -40,26 +44,28 @@
                         Details
                     </a>
 
-                    <a asp-action="Edit"
-                       asp-route-eventId="@ev.Id"
-                       class="btn btn-warning btn-sm">
-                        Edit
-                    </a>
+                    @if (isOrganizer)
+                    {
+                        <a asp-action="Edit"
+                           asp-route-eventId="@ev.Id"
+                           class="btn btn-warning btn-sm">
+                            Edit
+                        </a>
 
-                    <a asp-action="Delete"
-                       asp-route-eventId="@ev.Id"
-                       class="btn btn-danger btn-sm">
-                        Delete
-                    </a>
+                        <a asp-action="Delete"
+                           asp-route-eventId="@ev.Id"
+                           class="btn btn-danger btn-sm">
+                            Delete
+                        </a>
 
-                    <a asp-action="ManageAttendees"
-                       asp-route-eventId="@ev.Id"
-                       class="btn btn-primary btn-sm">
-                        Attendees
-                    </a>
+                        <a asp-action="ManageAttendees"
+                           asp-route-eventId="@ev.Id"
+                           class="btn btn-primary btn-sm">
+                            Attendees
+                        </a>
+                    }
                 </td>
             </tr>
         }
     </tbody>
-
 </table>
