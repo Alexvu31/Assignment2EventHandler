@@ -1,194 +1,121 @@
-﻿
-
+using Assignment1EventHandler.Models;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Assignment1EventHandler.Models;
 
-namespace Assignment1EventHandler.Data
+namespace Assignment1EventHandler.Data;
+
+public static class DbInitializer
 {
-    public static class DbInitializer
+    public static async Task Initialize(IServiceProvider services)
     {
-        public static async Task Initialize(
-            IServiceProvider serviceProvider)
+        var context = services.GetRequiredService<ApplicationDbContext>();
+        var roles = services.GetRequiredService<RoleManager<IdentityRole>>();
+        var users = services.GetRequiredService<UserManager<ApplicationUser>>();
+        var config = services.GetRequiredService<IConfiguration>();
+
+        await context.Database.MigrateAsync();
+
+        foreach (var role in new[] { "Organizer", "Attendee" })
         {
-            var context = serviceProvider
-                .GetRequiredService<ApplicationDbContext>();
-
-            var roleManager = serviceProvider
-                .GetRequiredService<RoleManager<IdentityRole>>();
-
-            var userManager = serviceProvider
-                .GetRequiredService<UserManager<ApplicationUser>>();
-
-            var configuration = serviceProvider
-                .GetRequiredService<IConfiguration>();
-
-            // Apply database migrations
-            await context.Database.MigrateAsync();
-
-            // Create roles
-            string[] roles = { "Organizer", "User" };
-
-            foreach (var role in roles)
+            if (!await roles.RoleExistsAsync(role))
             {
-                if (!await roleManager.RoleExistsAsync(role))
-                {
-                    var result = await roleManager.CreateAsync(
-                        new IdentityRole(role));
-
-                    if (!result.Succeeded)
-                    {
-                        throw new Exception(
-                            $"Failed to create role {role}: " +
-                            string.Join(", ",
-                                result.Errors.Select(e => e.Description)));
-                    }
-                }
-            }
-
-            // Seed Organizer account
-            await SeedUser(
-                userManager,
-                configuration,
-                "IdentitySeed:OrganizerEmail",
-                "IdentitySeed:OrganizerPassword",
-                "organizer@example.com",
-                "Organizer123!",
-                "Organizer");
-
-            // Seed regular User account
-            await SeedUser(
-                userManager,
-                configuration,
-                "IdentitySeed:UserEmail",
-                "IdentitySeed:UserPassword",
-                "user@example.com",
-                "User123!",
-                "User");
-
-            // Seed sample events only when none exist
-            if (!await context.Events.AnyAsync())
-            {
-                var events = new List<Event>
-                {
-                    new Event
-                    {
-                        Title = "ASP.NET Core Workshop",
-                        Description = "Learn ASP.NET Core MVC and Entity Framework Core.",
-                        Date = new DateTime(2026, 12, 5, 10, 0, 0),
-                        Location = "Room 101",
-                        Attendees = new List<Attendee>
-                        {
-                            new Attendee
-                            {
-                                Name = "John Smith",
-                                Email = "john@example.com"
-                            },
-                            new Attendee
-                            {
-                                Name = "Mary Johnson",
-                                Email = "mary@example.com"
-                            }
-                        }
-                    },
-
-                    new Event
-                    {
-                        Title = "C# Programming Seminar",
-                        Description = "Explore modern C# programming techniques.",
-                        Date = new DateTime(2026, 12, 10, 13, 30, 0),
-                        Location = "Room 202",
-                        Attendees = new List<Attendee>
-                        {
-                            new Attendee
-                            {
-                                Name = "David Brown",
-                                Email = "david@example.com"
-                            },
-                            new Attendee
-                            {
-                                Name = "Sarah Wilson",
-                                Email = "sarah@example.com"
-                            }
-                        }
-                    },
-
-                    new Event
-                    {
-                        Title = "Web Development Meetup",
-                        Description = "Meet developers and discuss web technologies.",
-                        Date = new DateTime(2026, 12, 15, 18, 0, 0),
-                        Location = "Room 303",
-                        Attendees = new List<Attendee>
-                        {
-                            new Attendee
-                            {
-                                Name = "Alex Green",
-                                Email = "alex@example.com"
-                            },
-                            new Attendee
-                            {
-                                Name = "Emma White",
-                                Email = "emma@example.com"
-                            }
-                        }
-                    }
-                };
-
-                await context.Events.AddRangeAsync(events);
-                await context.SaveChangesAsync();
+                var result = await roles.CreateAsync(new IdentityRole(role));
+                if (!result.Succeeded)
+                    throw new InvalidOperationException($"Could not create {role}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
             }
         }
 
-        private static async Task SeedUser(
-            UserManager<ApplicationUser> userManager,
-            IConfiguration configuration,
-            string emailKey,
-            string passwordKey,
-            string defaultEmail,
-            string defaultPassword,
-            string role)
+        var organizer = await SeedUser(users, config,
+            "IdentitySeed:OrganizerEmail", "IdentitySeed:OrganizerPassword",
+            "organizer@example.com", "Organizer123!", "Organizer");
+
+        // Prefer the new Attendee config keys, but support the old Lab 6 User keys.
+        var attendeeEmail = config["IdentitySeed:AttendeeEmail"] ?? config["IdentitySeed:UserEmail"] ?? "user@example.com";
+        var attendeePassword = config["IdentitySeed:AttendeePassword"] ?? config["IdentitySeed:UserPassword"] ?? "User123!";
+        var attendee = await SeedUser(users, attendeeEmail, attendeePassword, "Attendee");
+
+        // Convert existing Lab 6 accounts from the old User role to Attendee.
+        if (await roles.RoleExistsAsync("User"))
         {
-            var email = configuration[emailKey] ?? defaultEmail;
-            var password = configuration[passwordKey] ?? defaultPassword;
-
-            var user = await userManager.FindByEmailAsync(email);
-
-            if (user == null)
+            foreach (var oldUser in await users.GetUsersInRoleAsync("User"))
             {
-                user = new ApplicationUser
-                {
-                    UserName = email,
-                    Email = email,
-                    EmailConfirmed = true
-                };
-
-                var result = await userManager.CreateAsync(
-                    user, password);
-
-                if (!result.Succeeded)
-                {
-                    throw new Exception(
-                        $"Failed to create {role} account: " +
-                        string.Join(", ",
-                            result.Errors.Select(e => e.Description)));
-                }
+                if (!await users.IsInRoleAsync(oldUser, "Attendee"))
+                    await EnsureRole(users, oldUser, "Attendee");
             }
+        }
 
-            // Ensure existing users have the correct role
-            if (!await userManager.IsInRoleAsync(user, role))
-            {
-                var result = await userManager.AddToRoleAsync(
-                    user, role);
+        // Associate legacy events with the seeded organizer so private notifications work.
+        var existingEvents = await context.Events.Where(e => e.OrganizerUserId == null).ToListAsync();
+        foreach (var ev in existingEvents)
+            ev.OrganizerUserId = organizer.Id;
 
-                if (!result.Succeeded)
+        if (!await context.Events.AnyAsync())
+        {
+            context.Events.AddRange(
+                new Event
                 {
-                    throw new Exception(
-                        $"Failed to assign {role} role: " +
-                        string.Join(", ",
-                            result.Errors.Select(e => e.Description)));
-                }
-            }
+                    Title = "ASP.NET Core Workshop",
+                    Description = "Learn ASP.NET Core MVC and Entity Framework Core.",
+                    Date = new DateTime(2026, 12, 5, 10, 0, 0),
+                    Location = "Room 101",
+                    OrganizerUserId = organizer.Id,
+                    Attendees = new List<Attendee>
+                    {
+                        new() { Name = "John Smith", Email = "john@example.com" },
+                        new() { Name = "Mary Johnson", Email = "mary@example.com" }
+                    }
+                },
+                new Event
+                {
+                    Title = "C# Programming Seminar",
+                    Description = "Explore modern C# programming techniques.",
+                    Date = new DateTime(2026, 12, 10, 13, 30, 0),
+                    Location = "Room 202",
+                    OrganizerUserId = organizer.Id,
+                    Attendees = new List<Attendee>
+                    {
+                        new() { Name = "David Brown", Email = "david@example.com" },
+                        new() { Name = "Sarah Wilson", Email = "sarah@example.com" }
+                    }
+                });
+        }
+
+        await context.SaveChangesAsync();
+    }
+
+    private static async Task<ApplicationUser> SeedUser(
+        UserManager<ApplicationUser> manager, IConfiguration config,
+        string emailKey, string passwordKey, string defaultEmail,
+        string defaultPassword, string role)
+    {
+        var email = config[emailKey] ?? defaultEmail;
+        var password = config[passwordKey] ?? defaultPassword;
+        return await SeedUser(manager, email, password, role);
+    }
+
+    private static async Task<ApplicationUser> SeedUser(
+        UserManager<ApplicationUser> manager, string email,
+        string password, string role)
+    {
+        var user = await manager.FindByEmailAsync(email);
+        if (user == null)
+        {
+            user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true };
+            var create = await manager.CreateAsync(user, password);
+            if (!create.Succeeded)
+                throw new InvalidOperationException($"Could not seed {role}: {string.Join(", ", create.Errors.Select(e => e.Description))}");
+        }
+        await EnsureRole(manager, user, role);
+        return user;
+    }
+
+    private static async Task EnsureRole(UserManager<ApplicationUser> manager, ApplicationUser user, string role)
+    {
+        if (!await manager.IsInRoleAsync(user, role))
+        {
+            var result = await manager.AddToRoleAsync(user, role);
+            if (!result.Succeeded)
+                throw new InvalidOperationException($"Could not assign {role}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
         }
     }
 }

@@ -120,7 +120,17 @@ public class RegisterModel : PageModel
 
             if (result.Succeeded)
             {
-                _logger.LogInformation("User created a new account with password.");
+                // Public self-registration always creates an Attendee, never an Organizer.
+                var roleResult = await _userManager.AddToRoleAsync(user, "Attendee");
+                if (!roleResult.Succeeded)
+                {
+                    await _userManager.DeleteAsync(user);
+                    foreach (var error in roleResult.Errors)
+                        ModelState.AddModelError(string.Empty, error.Description);
+                    return Page();
+                }
+
+                _logger.LogInformation("User created a new Attendee account.");
 
                 var userId = await _userManager.GetUserIdAsync(user);
                 var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);

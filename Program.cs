@@ -1,10 +1,11 @@
 
-
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
 using Assignment1EventHandler.Data;
-using Azure.Storage.Blobs;
 using Assignment1EventHandler.Services;
+using Assignment1EventHandler.Hubs;
+using Azure.Storage.Blobs;
 
 namespace Assignment1EventHandler
 {
@@ -17,6 +18,9 @@ namespace Assignment1EventHandler
             // MVC and Razor Pages
             builder.Services.AddControllersWithViews();
             builder.Services.AddRazorPages();
+
+            // SignalR
+            builder.Services.AddSignalR();
 
             // Azure SQL Database
             builder.Services.AddDbContext<ApplicationDbContext>(
@@ -98,6 +102,10 @@ namespace Assignment1EventHandler
 
             app.MapRazorPages();
 
+            // SignalR Hub endpoint
+            app.MapHub<EventHub>("/eventHub");
+
+            // MVC routes
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=EventManager}/{action=Index}/{id?}");

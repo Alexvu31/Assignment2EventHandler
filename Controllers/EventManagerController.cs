@@ -1,7 +1,10 @@
-﻿
+
 using Assignment1EventHandler.Data;
 using Assignment1EventHandler.Models;
 using Assignment1EventHandler.Services;
+using Assignment1EventHandler.Hubs;
+using Microsoft.AspNetCore.SignalR;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -15,13 +18,16 @@ namespace Assignment1EventHandler.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly BlobStorageService _blobStorage;
+        private readonly IHubContext<EventHub> _hub;
 
         public EventManagerController(
             ApplicationDbContext context,
-            BlobStorageService blobStorage)
+            BlobStorageService blobStorage,
+            IHubContext<EventHub> hub)
         {
             _context = context;
             _blobStorage = blobStorage;
+            _hub = hub;
         }
 
         // DISPLAY ALL EVENTS - ORGANIZER AND USER
@@ -47,6 +53,9 @@ namespace Assignment1EventHandler.Controllers
             if (selectedEvent == null)
                 return NotFound();
 
+            var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            ViewBag.IsRegistered = currentUserId != null && selectedEvent.Attendees.Any(a => a.UserId == currentUserId);
+            ViewBag.AttendeeCount = selectedEvent.Attendees.Count;
             return View(selectedEvent);
         }
 
@@ -67,9 +76,14 @@ namespace Assignment1EventHandler.Controllers
             IFormFile? bannerImage)
         {
             ModelState.Remove("Attendees");
+            ModelState.Remove("Organizer");
+            ModelState.Remove("OrganizerUserId");
 
             if (!ModelState.IsValid)
                 return View(ev);
+
+            // Never accept event ownership from posted form data.
+            ev.OrganizerUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             // Upload banner to Azure Blob Storage
             if (bannerImage != null && bannerImage.Length > 0)
@@ -191,6 +205,83 @@ namespace Assignment1EventHandler.Controllers
             await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
+        }
+
+        // ATTENDEE SELF-REGISTRATION - ANY AUTHENTICATED USER
+        [HttpPost("{eventId:int}/register")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Register(int eventId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId)) return Challenge();
+
+            var ev = await _context.Events
+                .Include(e => e.Attendees)
+                .FirstOrDefaultAsync(e => e.Id == eventId);
+            if (ev == null) return NotFound();
+
+            if (await _context.Attendees.AnyAsync(a => a.EventId == eventId && a.UserId == userId))
+            {
+                TempData["RegistrationMessage"] = "You are already registered for this event.";
+                return RedirectToAction(nameof(Details), new { eventId });
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+            if (user == null) return Challenge();
+
+            var attendee = new Attendee
+            {
+                EventId = eventId,
+                UserId = userId,
+                Name = user.UserName ?? user.Email ?? "Attendee",
+                Email = user.Email ?? string.Empty
+            };
+            _context.Attendees.Add(attendee);
+            await _context.SaveChangesAsync();
+
+            var attendeeCount = await _context.Attendees.CountAsync(a => a.EventId == eventId);
+            await _hub.Clients.Group($"event-{eventId}").SendAsync("AttendeeUpdated", new
+            {
+                attendeeCount,
+                attendeeId = attendee.Id,
+                attendeeName = attendee.Name,
+                attendeeEmail = attendee.Email
+            });
+
+            if (!string.IsNullOrWhiteSpace(ev.OrganizerUserId))
+            {
+                await _hub.Clients.User(ev.OrganizerUserId).SendAsync(
+                    "OrganizerNotification",
+                    $"{attendee.Email} just registered for your {ev.Title}.");
+            }
+
+            TempData["RegistrationMessage"] = "You have successfully registered.";
+            return RedirectToAction(nameof(Details), new { eventId });
+        }
+
+        // ATTENDEE SELF-UNREGISTRATION - ONLY DELETE THE CURRENT USER'S RECORD
+        [HttpPost("{eventId:int}/unregister")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Unregister(int eventId)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId)) return Challenge();
+
+            var attendee = await _context.Attendees.FirstOrDefaultAsync(a =>
+                a.EventId == eventId && a.UserId == userId);
+            if (attendee == null) return NotFound();
+
+            _context.Attendees.Remove(attendee);
+            await _context.SaveChangesAsync();
+
+            var count = await _context.Attendees.CountAsync(a => a.EventId == eventId);
+            await _hub.Clients.Group($"event-{eventId}").SendAsync("AttendeeRemoved", new
+            {
+                attendeeId = attendee.Id,
+                attendeeCount = count
+            });
+
+            return RedirectToAction(nameof(Details), new { eventId });
         }
 
         // DISPLAY ATTENDEES - ORGANIZER ONLY
