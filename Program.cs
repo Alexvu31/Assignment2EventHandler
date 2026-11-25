@@ -1,4 +1,6 @@
 
+
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Assignment1EventHandler.Data;
 using Azure.Storage.Blobs;
@@ -12,11 +14,11 @@ namespace Assignment1EventHandler
         {
             var builder = WebApplication.CreateBuilder(args);
 
-            // Add services to the container.
+            // MVC and Razor Pages
             builder.Services.AddControllersWithViews();
+            builder.Services.AddRazorPages();
 
-            // Register Azure SQL Database
-
+            // Azure SQL Database
             builder.Services.AddDbContext<ApplicationDbContext>(
                 options =>
                     options.UseSqlServer(
@@ -31,7 +33,30 @@ namespace Assignment1EventHandler
                     )
             );
 
-            // Configure Azure Blob Storage
+            // ASP.NET Core Identity
+            builder.Services
+                .AddDefaultIdentity<ApplicationUser>(options =>
+                {
+                    options.SignIn.RequireConfirmedAccount = false;
+                })
+                .AddRoles<IdentityRole>()
+                .AddEntityFrameworkStores<ApplicationDbContext>();
+
+            // Authentication cookie configuration
+            builder.Services.ConfigureApplicationCookie(options =>
+            {
+                options.LoginPath = "/Identity/Account/Login";
+                options.LogoutPath = "/Identity/Account/Logout";
+                options.AccessDeniedPath = "/Identity/Account/AccessDenied";
+
+                options.Cookie.HttpOnly = true;
+                options.Cookie.SecurePolicy =
+                    CookieSecurePolicy.Always;
+                options.ExpireTimeSpan = TimeSpan.FromHours(2);
+                options.SlidingExpiration = true;
+            });
+
+            // Azure Blob Storage
             var blobConnectionString =
                 builder.Configuration["AzureBlobStorage:ConnectionString"];
 
@@ -48,16 +73,13 @@ namespace Assignment1EventHandler
 
             var app = builder.Build();
 
-            // Initialize database and seed data
+            // Initialize database and seed roles, users and events
             using (var scope = app.Services.CreateScope())
             {
-                var context = scope.ServiceProvider
-                    .GetRequiredService<ApplicationDbContext>();
-
-                await DbInitializer.Initialize(context);
+                await DbInitializer.Initialize(scope.ServiceProvider);
             }
 
-            // Configure HTTP request pipeline
+            // HTTP request pipeline
             if (!app.Environment.IsDevelopment())
             {
                 app.UseExceptionHandler("/Home/Error");
@@ -70,15 +92,20 @@ namespace Assignment1EventHandler
 
             app.UseRouting();
 
+            // Authentication MUST come before authorization
+            app.UseAuthentication();
             app.UseAuthorization();
+
+            app.MapRazorPages();
 
             app.MapControllerRoute(
                 name: "default",
                 pattern: "{controller=EventManager}/{action=Index}/{id?}");
 
+            // Blob Storage connection test
             app.MapGet("/blob-test", async (
-            Azure.Storage.Blobs.BlobServiceClient blobClient,
-            IConfiguration configuration) =>
+                BlobServiceClient blobClient,
+                IConfiguration configuration) =>
             {
                 try
                 {

@@ -3,6 +3,7 @@ bin/
 obj/ 
 # Local application settings containing secrets
 appsettings.Development.json
+appsettings.json
 
 # User-specific configuration
 *.csproj.user
